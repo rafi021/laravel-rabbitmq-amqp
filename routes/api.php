@@ -11,6 +11,7 @@ Route::get('/user', function (Request $request) {
 Route::post("/message", function (Request $request) {
     $message = $_POST['message'];
     $mqService = new RabbitMQService();
-    $mqService->publish($message);
+    $mqService->publishTopic($message, 'order.created');
+    $mqService->publishTopic($message,'mail.send');
     return view('welcome');
 });

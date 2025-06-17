@@ -38,7 +38,7 @@ class RabbitMQService
         $channel->queue_declare($queue_name, false, false, false, false);
         $channel->queue_bind($queue_name, $exchange, $routing_key);
 
-        $msg = new AMQPMessage($message);
+        $msg = new AMQPMessage(json_encode($message));
         $channel->basic_publish($msg, $exchange, $routing_key);
         // echo " [x] Sent $message to $exchange / $queue_name.\n";
         $channel->close();
@@ -52,11 +52,52 @@ class RabbitMQService
         [$connection, $channel ]= $this->createConnection();
 
         $callback = function ($msg) {
-            echo ' [x] Received ', $msg->body, "\n";
+            echo ' [x] Received ', json_decode($msg->body, true), "\n";
         };
+
         $channel->queue_declare($queue_name, false, false, false, false);
 
         $channel->basic_consume($queue_name, '', false, true, false, false, $callback);
+
+        echo 'Waiting for new message on test_queue', " \n";
+        while ($channel->is_consuming()) {
+            $channel->wait();
+        }
+        $channel->close();
+        $connection->close();
+    }
+
+    public function publishTopic(
+        $message, 
+        string $routing_key="order.created",
+        string $exchange="topic_exchange", 
+        string $exchange_type="topic", 
+    ): void{
+         [$connection, $channel ]= $this->createConnection();
+         $channel->exchange_declare($exchange, $exchange_type, false, true, false);
+
+         $msg = new AMQPMessage(json_encode($message));
+         $channel->basic_publish($msg, $exchange, $routing_key);
+         $channel->close();
+         $connection->close();
+    }
+
+    public function consumeTopic(
+        string $queue_name = "order_queue",
+        string $topicPattern="order.*",
+        string $exchange="topic_exchange", 
+        string $exchange_type="topic", 
+    ):void{
+        [$connection, $channel ]= $this->createConnection();
+        $channel->exchange_declare($exchange, $exchange_type, false, true, false);
+        $channel->queue_declare($queue_name, false, true, false, false);
+        $channel->queue_bind($queue_name, $exchange, $topicPattern);
+
+        $callback = function ($msg) {
+            echo ' [x] Received ', json_decode($msg->body, true), "\n";
+        };
+
+        $channel->basic_consume($queue_name, '', false, false, false, false, $callback);
 
         echo 'Waiting for new message on test_queue', " \n";
         while ($channel->is_consuming()) {
