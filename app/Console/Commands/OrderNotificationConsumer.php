@@ -27,6 +27,6 @@ class OrderNotificationConsumer extends Command
     public function handle()
     {
         $mqService = new RabbitMQService();
-        $mqService->consumeTopic('notification_queue', 'mail.*');
+        $mqService->consumeFanout();
     }
 }
